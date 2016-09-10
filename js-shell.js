@@ -57,10 +57,19 @@ var pluginFactory = function ($) {
         wrapcb : function(context){
             context.out.resolve('{'+context.input+'}');
         },
+        uppercase : function(context){
+            context.out.resolve(context.input.toUpperCase());
+        },
         dbox   : ":r wrapstar | wrapsb",
         dround : ":r wraprb | wrapcb",
         decorate : ":r dbox | dround"
     };
+
+    // Config maps can hold objects or strings
+    var configMap = {
+        "test_get"  : "http://httpbin.org/get",
+        "test_post" : "http://requestb.in/"
+    }
 
     $.fn.jsshell = function (options) {
 
@@ -112,8 +121,9 @@ var pluginFactory = function ($) {
         }
 
         // Utilities
-        function runAll(inputText){
-            run(inputText,{},optionMap.callback);
+        function runAll(inputText,session){
+            session = session || {};
+            run(inputText,{"session":session},optionMap.callback);
         };
 
         function run(inputText,context,callback){
@@ -123,6 +133,10 @@ var pluginFactory = function ($) {
 
             //carry forward context if any
             programArray[0].input = context.input;
+            for(var index=0;index<programArray.length;++index){
+                programArray[index].session = context.session;
+            }
+
             var finalPromise = executeEach(programArray);
             //after all commands are executed
             finalPromise.then(function(data){
@@ -132,8 +146,9 @@ var pluginFactory = function ($) {
         };
 
         //expose globally
-        $.jsshell = function(inputText){
-            return runAll(inputText);
+        $.jsshell = function(inputText,session){
+            session = session || {};
+            return runAll(inputText,session);
         };
 
         $.jsshell.run = function(inputText, context, callback){
@@ -215,7 +230,7 @@ var pluginFactory = function ($) {
             }
 
             commandArray = [].concat.apply([], commandArray);
-            console.log('commandArray',commandArray);
+
             return commandArray;
         };
 
@@ -235,9 +250,10 @@ var pluginFactory = function ($) {
                 commandPartsArr = $.grep(commandPartsArr,function(n){ return n == 0 || n });
 
                 var redirectCommandMap = getRedirectionDetails(commandPartsArr);
-
+                //get the plugin
                 if( commandPartsArr.length > 0 ) {
                     command = resolvePlugin(commandPartsArr[0],commandPartsArr);
+                    console.log('command config=',command.config);
                 }
 
                 //prepend / append with redirection commands if found
@@ -272,6 +288,12 @@ var pluginFactory = function ($) {
                 }
 
                 url = $.trim(commandPartsArr[index+1]);
+
+                //try resolving from plugin
+                if( typeof(configMap[url]) === "string"  ){
+                    url = configMap[url];
+                }
+
                 if( method && isURL( url ) ){
                     redirectCommand = {};
                     redirectCommand.method = method;
@@ -300,12 +322,33 @@ var pluginFactory = function ($) {
                 command.cmdText = pluginValue;
             }
 
+            command.config = resolveConfig(args);
+
             return command;
         };
     };
 
+    var resolveConfig = function(commandPartsArr){
+        var configObject = {};
+        var commandText;
+        for(var index=0;index<commandPartsArr.length;++index){
+            commandText = $.trim(commandPartsArr[index]);
+            if (commandText && commandText.startsWith('--') == true ){
+                var configArray = commandText.substring(2).split(",");
+                for( var y =0 ; y< configArray.length ; ++y ){
+                    configObject[configArray[y]] = configMap[configArray[y]];
+                }
+            }
+        }
+        return configObject;
+    }
+
     $.fn.jsshell.addPlugin = function(command,value){
         pluginMap[command] = value;
+    };
+
+    $.fn.jsshell.addConfig = function(configName,value){
+        pluginMap[configName] = value;
     };
 
     // Default Options

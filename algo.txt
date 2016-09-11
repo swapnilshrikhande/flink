@@ -26,3 +26,8 @@ Lightweight
 6. forum to upload your plugins, flows.
 
 7. How can we best support mobiles ?
+
+
+support success and failure both as below :
+execute | success:failure
+execute | success : failure

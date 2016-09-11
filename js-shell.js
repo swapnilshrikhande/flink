@@ -39,7 +39,7 @@ var pluginFactory = function ($) {
     var pluginMap = {
         echo : function(context){
             if(context.input)
-            context.out.resolve(JSON.stringify(context.input));
+                context.out.resolve(JSON.stringify(context.input));
             else if(context.args)
                 context.out.resolve(context.args.join());
             else
@@ -65,11 +65,11 @@ var pluginFactory = function ($) {
         decorate : ":r dbox | dround"
     };
 
-    // Config maps can hold objects or strings
+    // Config maps learcan hold objects or strings
     var configMap = {
         "test_get"  : "http://httpbin.org/get",
         "test_post" : "http://requestb.in/"
-    }
+    };
 
     $.fn.jsshell = function (options) {
 
@@ -139,7 +139,7 @@ var pluginFactory = function ($) {
 
             var finalPromise = executeEach(programArray);
             //after all commands are executed
-            finalPromise.then(function(data){
+            finalPromise.always(function(data){
                 callback.apply(this,[data]);
             });
             return finalPromise;
@@ -165,13 +165,39 @@ var pluginFactory = function ($) {
                 } else {
                     programContext = programArray[index];
 
-                    promise = (function(context){
+                    promise = (function(context,promiseLocal){
 
-                        promise = promise.then(function(data){
-                                        context.input = data;
-                                        return execute(context);
-                                    });
+                        var onError,onSuccess,promise;
+
+                        //if error command defined
+                        if( context.errCommand ){
+                            onError = $.extend( {}, context, context.errCommand);
+                            onError.errCommand=null;
+                        }
+                        onSuccess = context;
+
+                        promise = promiseLocal.then(
+                          //success handler
+                          function(data){
+                            onSuccess.input = data;
+                            return execute(onSuccess);
+                          }
+                           //error handler
+                          ,function(data){
+                                if(onError){
+                                    onError.input = data;
+                                    return execute(onError);
+                                } else {
+                                    //if no error handler declared call default success handler
+                                    onSuccess.input = data;
+                                    onSuccess.hasError = true;
+                                    return execute(onSuccess);
+                                }
+                            }
+                        );
+
                         return promise;
+
                     }(programContext,promise));
                 }
             }
@@ -237,6 +263,7 @@ var pluginFactory = function ($) {
         function parseCommand(commandString){
             var commandPartsArr;
             var command = {};
+            var commandHandlerArr;
 
             commandString = $.trim(commandString) || "";
             if(commandString[0]===":"){
@@ -252,8 +279,15 @@ var pluginFactory = function ($) {
                 var redirectCommandMap = getRedirectionDetails(commandPartsArr);
                 //get the plugin
                 if( commandPartsArr.length > 0 ) {
-                    command = resolvePlugin(commandPartsArr[0],commandPartsArr);
-                    console.log('command config=',command.config);
+
+                    //handler error / success
+                    commandHandlerArr = splitSuccessFailureCommands(commandPartsArr[0]);
+                    command = resolvePlugin(commandHandlerArr[0],commandPartsArr);
+
+                    if(commandHandlerArr.length > 1){
+                         command.errCommand = resolvePlugin(commandHandlerArr[1],commandPartsArr);
+                    }
+
                 }
 
                 //prepend / append with redirection commands if found
@@ -326,6 +360,10 @@ var pluginFactory = function ($) {
 
             return command;
         };
+    };
+
+    var splitSuccessFailureCommands = function(commandText){
+        return commandText.split(':');
     };
 
     var resolveConfig = function(commandPartsArr){

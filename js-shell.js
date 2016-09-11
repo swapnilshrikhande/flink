@@ -192,9 +192,9 @@ var pluginFactory = function ($) {
             if( context.errCommand ){
                 //extend to inherit session/config, other paramters
                 //this can be improved
-                onError = $.extend( {}, context, context.errCommand);
-                //remove self
-                onError.errCommand=null;
+                onError = context.errCommand;
+                onError.config  = context.config;
+                onError.session = context.session;
             }
             onSuccess = context;
 

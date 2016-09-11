@@ -41,7 +41,7 @@ var pluginFactory = function ($) {
             if(context.input)
                 context.out.resolve(JSON.stringify(context.input));
             else if(context.args)
-                context.out.resolve(context.args.join());
+                context.out.reject(context.args.join());
             else
                 context.out.resolve("");
         },
@@ -73,20 +73,20 @@ var pluginFactory = function ($) {
 
     $.fn.jsshell = function (options) {
 
+        //initialization
         // Options
         var optionMap = $.extend( {}, $.fn.jsshell.defaults, options);
-
         var templateHtml = getTemplateHtml(optionMap.template);
-
         var shellElement = $(templateHtml);
-
         // Watch for enter event on the text box
         $(shellElement).find(optionMap.input).enterKey(function(event){
             runAll($(this).val());
         });
-
         //append the shell to parent dom selected
         $(this).append(shellElement);
+
+
+        //initialization default / overrides
 
         //if callback not defined provide default callback
         if(!optionMap.callback){
@@ -120,12 +120,24 @@ var pluginFactory = function ($) {
             };
         }
 
-        // Utilities
+        //initialization utility functions
+        function getTemplateHtml(template){
+            //if a function call it
+            if(template && template instanceof Function ){
+                return template();
+            } else {
+                //else it is a selector
+                return $(template);
+            }
+        };
+
+        //main function 1
         function runAll(inputText,session){
             session = session || {};
             run(inputText,{"session":session},optionMap.callback);
         };
 
+        //main function 2 with callback
         function run(inputText,context,callback){
             context = context || {};
             //load
@@ -145,7 +157,7 @@ var pluginFactory = function ($) {
             return finalPromise;
         };
 
-        //expose globally
+        //expose main functions globally
         $.jsshell = function(inputText,session){
             session = session || {};
             return runAll(inputText,session);
@@ -155,6 +167,7 @@ var pluginFactory = function ($) {
             return run(inputText, context, callback);
         };
 
+        //execution functions
         function executeEach(programArray){
             var promise;
             var programContext;
@@ -164,44 +177,48 @@ var pluginFactory = function ($) {
                     promise = execute(programArray[index]);
                 } else {
                     programContext = programArray[index];
-
-                    promise = (function(context,promiseLocal){
-
-                        var onError,onSuccess,promise;
-
-                        //if error command defined
-                        if( context.errCommand ){
-                            onError = $.extend( {}, context, context.errCommand);
-                            onError.errCommand=null;
-                        }
-                        onSuccess = context;
-
-                        promise = promiseLocal.then(
-                          //success handler
-                          function(data){
-                            onSuccess.input = data;
-                            return execute(onSuccess);
-                          }
-                           //error handler
-                          ,function(data){
-                                if(onError){
-                                    onError.input = data;
-                                    return execute(onError);
-                                } else {
-                                    //if no error handler declared call default success handler
-                                    onSuccess.input = data;
-                                    onSuccess.hasError = true;
-                                    return execute(onSuccess);
-                                }
-                            }
-                        );
-
-                        return promise;
-
-                    }(programContext,promise));
+                    promise = registerCallbacks(programContext,promise);
                 }
             }
             //return final promise
+            return promise;
+        };
+
+        var registerCallbacks = function(context,promiseLocal){
+
+            var onError,onSuccess,promise;
+
+            //if error command defined
+            if( context.errCommand ){
+                //extend to inherit session/config, other paramters
+                //this can be improved
+                onError = $.extend( {}, context, context.errCommand);
+                //remove self
+                onError.errCommand=null;
+            }
+            onSuccess = context;
+
+            promise = promiseLocal.then(
+              //success handler
+              function(data){
+                onSuccess.input = data;
+                return execute(onSuccess);
+              }
+               //error handler
+              ,function(data){
+                    //if error command defined
+                    if( context.errCommand ){
+                        onError.input = data;
+                        return execute(onError);
+                    } else {
+                        //if no error handler declared call default success handler
+                        onSuccess.input = data;
+                        onSuccess.hasError = true;
+                        return execute(onSuccess);
+                    }
+                }
+            );
+
             return promise;
         };
 
@@ -235,16 +252,7 @@ var pluginFactory = function ($) {
             }
         };
 
-        function getTemplateHtml(template){
-            //if a function call it
-            if(template && template instanceof Function ){
-                return template();
-            } else {
-                //else it is a selector
-                return $(template);
-            }
-        };
-
+        //Input parsing functions
         function parseInput(inputText){
             //split and remove each command
             inputText = inputText || "";

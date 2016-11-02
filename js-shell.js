@@ -44,6 +44,7 @@ var pluginFactory = function ($) {
                 context.out.reject(context.args.join());
             else
                 context.out.resolve("");
+            console.log('echo',context.config);
         },
         wrapstar : function(context){
             context.out.resolve('*'+context.input+'*');
@@ -60,9 +61,9 @@ var pluginFactory = function ($) {
         uppercase : function(context){
             context.out.resolve(context.input.toUpperCase());
         },
-        dbox   : ":r wrapstar | wrapsb",
-        dround : ":r wraprb | wrapcb",
-        decorate : ":r dbox | dround"
+        dbox     : ":r wrapstar | wrapsb",
+        dround   : ":r wraprb   | wrapcb",
+        decorate : ":r dbox     | dround"
     };
 
     // Config maps learcan hold objects or strings
@@ -259,12 +260,13 @@ var pluginFactory = function ($) {
             var inputArray = inputText.split('|');
             var commandArray = [];
             //process each command
-            for(var index=0;index<inputArray.length;++index){
-                commandArray.push(parseCommand(inputArray[index]));
+            for ( var index=0 ; index<inputArray.length ; ++index ) {
+                var command = parseCommand( inputArray[index] );
+                if( command ){
+                    commandArray.push(command);
+                }
             }
-
             commandArray = [].concat.apply([], commandArray);
-
             return commandArray;
         };
 
@@ -389,11 +391,11 @@ var pluginFactory = function ($) {
         return configObject;
     }
 
-    $.fn.jsshell.addPlugin = function(command,value){
+    $.fn.jsshell.addPlugin = function(command, value){
         pluginMap[command] = value;
     };
 
-    $.fn.jsshell.addConfig = function(configName,value){
+    $.fn.jsshell.addConfig = function( configName, value) {
         pluginMap[configName] = value;
     };
 

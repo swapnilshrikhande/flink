@@ -1,6 +1,6 @@
-//     js-shell
+//     flink.js
 //     (c) 2016 Swapnil Shrikhande
-//     js-shell may be freely distributed under the MIT license.
+//     flinkjs may be freely distributed under the MIT license.
 //     For all details and documentation: // github.io link
 
 // TODO
